@@ -24,26 +24,28 @@ const char *imageend = ".pgm";		/* Suffixe */
 #endif
 
 double z_des = 200.0/1000.0;
+
+
 /****************************************************************************************
 *
 *	Update_aoi : mise  �  jour de la position de l'AOI
 *
 *****************************************************************************************/
 int Update_aoi ( struct tpe_t *tpe, int obj)	{
-	cible_t* c = &tpe->cible[obj];
-
 	double det,alpha,a1,a2;
+
+	cible_t* c = &tpe->cible[obj];
 
 	// Calcul les caracteristique de l'ellipse
  	det = sqrt((c->mu02 - c->mu20)*(c->mu02 - c->mu20) + 4 * c->mu11 * c->mu11);
-	alpha = atan((c->mu02 - c->mu20 + det) / (2.0 * c->mu11));
+	alpha = atan((c->mu02 - c->mu20 + det) / (2. * c->mu11));
 	a1 = sqrt(2*(c->mu02 + c->mu20 + det) / c->m00);
 	a2 = sqrt(2*(c->mu02 + c->mu20 - det) / c->m00);
 
 	// Calcul la largeur et la longueur de l'imagette
 	// On considere que l'ellipse est un rectangle
-	c->aoi_dx = 2 * a1 * abs(cos(alpha)) + 2 * a2 * abs(sin(alpha)) + 2 * TPE_MARGE;
-	c->aoi_dy = 2 * a1 * abs(sin(alpha)) + 2 * a2 * abs(cos(alpha)) + 2 * TPE_MARGE;
+	c->aoi_dx = 2 * a1 * fabs(cos(alpha)) + 2 * a2 * fabs(sin(alpha)) + 2 * TPE_MARGE;
+	c->aoi_dy = 2 * a1 * fabs(sin(alpha)) + 2 * a2 * fabs(cos(alpha)) + 2 * TPE_MARGE;
 
 	// Calcul de l'origine de l'imagette
 	c->aoi_x0 = c->cx - c->aoi_dx / 2;
@@ -79,7 +81,8 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 *****************************************************************************************/
 int Moment (struct tpe_t *tpe, int obj  ){
 	int i, j;
-	cible_t* c = &tpe->cible[obj];
+
+	struct cible_t* c = &tpe->cible[obj];
 
 	// Initialise les moments
 	c->m00 = 0;
@@ -105,7 +108,7 @@ int Moment (struct tpe_t *tpe, int obj  ){
 	// Calcul les centroids
 	c->cx = c->m10 / c->m00;
 	c->cy = c->m01 / c->m00;
-	
+
 	// Calcul les moments centres d'ordre 2
 	c->mu20 = c->m20 - c->m10*c->m10/c->m00;
 	c->mu11 = c->m11 - c->m10*c->m01/c->m00;
@@ -120,22 +123,61 @@ int Moment (struct tpe_t *tpe, int obj  ){
 *
 *****************************************************************************************/
 int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
+	double a1, a2, a3, a4;
+	double ucur, vcur, cy, uref, vref, alpha, det, a1carre, a2carre;
 
-	/* a  coder */
+	struct cible_t* c_des = &tpe->cible[obj_des];
+	struct cible_t* c_cur = &tpe->cible[obj_cur];
+	double* info_i = tpe->info_image[1];
+
+	det = sqrt((c_des->mu20 - c_des->mu02) * (c_des->mu20 - c_des->mu02) + 4 * c_des->mu11 * c_des->mu11);
+	alpha = atan((c_des->mu02 - c_des->mu20 + det) / (2. * c_des->mu11));
+	a1carre = 2 * (c_des->mu02 + c_des->mu20 + det) / c_des->m00;
+	a2carre = 2 * (c_des->mu02 + c_des->mu20 - det) / c_des->m00;
+
+	c_des->cx = c_des->cx;
+	c_des->cy = c_des->cy;
+	uref = c_des->cx + sqrt(a1carre) * cos(alpha);
+	vref = c_des->cy + sqrt(a1carre) * sin(alpha);
+
+ 	det = sqrt((c_cur->mu20 - c_cur->mu02) * (c_cur->mu20 - c_cur->mu02) + 4 * c_cur->mu11 * c_cur->mu11);
+	alpha = atan((c_cur->mu02 - c_cur->mu20 + det) / (2. * c_cur->mu11));
+	a1carre = 2 * (c_cur->mu02 + c_cur->mu20 + det) / c_cur->m00;
+	a2carre = 2 * (c_cur->mu02 + c_cur->mu20 - det) / c_cur->m00;
+
+	cy = c_cur->cy;
+	ucur = c_cur->cx + sqrt(a1carre) * cos(alpha);
+	vcur = c_cur->cx + sqrt(a1carre) * sin(alpha);
+
+	a1 = ((vref - c_des->cy) * (vcur - c_cur->cy) + (uref - c_des->cx) * (ucur - c_cur->cx))
+		 / ((vref - c_des->cy) * (vref - c_des->cy) + (uref - c_des->cx) * (uref - c_des->cx));
+	a2 = ((ucur - c_cur->cx) - a1 * (uref - c_des->cx)) / (vref - c_des->cy);
+	a3 = c_cur->cx - U_0 - a1 * (c_des->cx - U_0) - a2 * (c_des->cy - V_0);
+	a4 = c_cur->cy - V_0 - a1 * (c_des->cy - V_0) + a2 * (c_des->cx - U_0);
+
+	info_i[2] = Z_EST - Z_EST / sqrt((a1 * a1 + a2 * a2)); // tz
+	info_i[0] = (Z_EST - info_i[2]) * a3; // tx , z=zetoile-tz
+	info_i[1] = (Z_EST - info_i[2]) * a4;; // ty
+	info_i[3] = atan(a2 / a1); // alpha
+
 	return 0;
-
-	}
+}
 /****************************************************************************************
 *
 *	Commande : calcul de la commande du robot dans l'espace de la camera
 *
 *****************************************************************************************/
 int Commande ( struct tpe_t tpe, double *control)	{
+	double* info_i = tpe.info_image[1];
 
-	/* a  coder */
+	// Mise a jour de la commande
+	control[0] = info_i[0]*GAIN_T;
+	control[1] = info_i[1]*GAIN_T;
+	control[2] = info_i[2]*GAIN_T;
+	control[3] = info_i[3]*GAIN_R;
+
 	return 0;
-
-	}
+}
 
 /****************************************************************************************
 *
