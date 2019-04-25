@@ -34,15 +34,18 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 
 	double det,alpha,a1,a2;
 
+	// Calcul les caracteristique de l'ellipse
  	det = sqrt((c->mu02 - c->mu20)*(c->mu02 - c->mu20) + 4 * c->mu11 * c->mu11);
-
 	alpha = atan((c->mu02 - c->mu20 + det) / (2.0 * c->mu11));
 	a1 = sqrt(2*(c->mu02 + c->mu20 + det) / c->m00);
 	a2 = sqrt(2*(c->mu02 + c->mu20 - det) / c->m00);
 
+	// Calcul la largeur et la longueur de l'imagette
+	// On considere que l'ellipse est un rectangle
 	c->aoi_dx = 2 * a1 * abs(cos(alpha)) + 2 * a2 * abs(sin(alpha)) + 2 * TPE_MARGE;
 	c->aoi_dy = 2 * a1 * abs(sin(alpha)) + 2 * a2 * abs(cos(alpha)) + 2 * TPE_MARGE;
 
+	// Calcul de l'origine de l'imagette
 	c->aoi_x0 = c->cx - c->aoi_dx / 2;
 	c->aoi_y0 = c->cy - c->aoi_dy / 2;
 
@@ -51,7 +54,6 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 		c->aoi_dx += c->aoi_x0;
 		c->aoi_x0 = 0;
 	}
-
 	if (c->aoi_y0 < 0) {
 		c->aoi_dy += c->aoi_y0;
 		c->aoi_y0 = 0;
@@ -62,7 +64,6 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 	{
 		c->aoi_dx = tpe->im.width - c->aoi_x0;
 	}
-
 	if (c->aoi_y0 + c->aoi_dy > tpe->im.height)
 	{
 		c->aoi_dy = tpe->im.height - c->aoi_y0;
@@ -79,6 +80,8 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 int Moment (struct tpe_t *tpe, int obj  ){
 	int i, j;
 	cible_t* c = &tpe->cible[obj];
+
+	// Initialise les moments
 	c->m00 = 0;
 	c->m10 = 0;
 	c->m01 = 0;
@@ -86,6 +89,7 @@ int Moment (struct tpe_t *tpe, int obj  ){
 	c->m11 = 0;
 	c->m02 = 0;
 
+	// Calcul les moments
 	for (i = c->aoi_x0 ; i < c->aoi_x0 + c->aoi_dx ; i++) {
 		for (j = c->aoi_y0 ; j < c->aoi_y0 + c->aoi_dy ; j++) {
 			if (tpe->im.coord[j][i] < TPE_SEUIL) {
@@ -98,8 +102,11 @@ int Moment (struct tpe_t *tpe, int obj  ){
 			}
 		}
 	}
+	// Calcul les centroids
 	c->cx = c->m10 / c->m00;
 	c->cy = c->m01 / c->m00;
+	
+	// Calcul les moments centres d'ordre 2
 	c->mu20 = c->m20 - c->m10*c->m10/c->m00;
 	c->mu11 = c->m11 - c->m10*c->m01/c->m00;
 	c->mu02 = c->m02 - c->m01*c->m01/c->m00;
