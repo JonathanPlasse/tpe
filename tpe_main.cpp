@@ -34,7 +34,9 @@ double z_des = 200.0/1000.0;
 int Update_aoi ( struct tpe_t *tpe, int obj)	{
 	double det,alpha,a1,a2;
 
-	cible_t* c = &tpe->cible[obj];
+	cible_t* c;
+
+	c = &tpe->cible[obj];
 
 	// Calcul les caracteristique de l'ellipse
  	det = sqrt((c->mu02 - c->mu20)*(c->mu02 - c->mu20) + 4 * c->mu11 * c->mu11);
@@ -82,7 +84,9 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 int Moment (struct tpe_t *tpe, int obj  ){
 	int i, j;
 
-	struct cible_t* c = &tpe->cible[obj];
+	struct cible_t* c;
+
+	c = &tpe->cible[obj];
 
 	// Initialise les moments
 	c->m00 = 0;
@@ -123,42 +127,71 @@ int Moment (struct tpe_t *tpe, int obj  ){
 *
 *****************************************************************************************/
 int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
-	double a1, a2, a3, a4;
-	double ucur, vcur, cy, uref, vref, alpha, det, a1carre, a2carre;
+	double a1,a2,a3,a4;
+	double u_cur,v_cur,cx_cur,cy_cur,u_ref,v_ref,cx_ref,cy_ref,alpha,det,a1carre,a2carre;
+	double **M;
+	double **M_inv;
+	double a_vec[4];
+	double u_vec[4];
 
-	struct cible_t* c_des = &tpe->cible[obj_des];
-	struct cible_t* c_cur = &tpe->cible[obj_cur];
-	double* info_i = tpe->info_image[1];
+	struct cible_t* c_des;
+	struct cible_t* c_cur;
+	double* info_image;
 
-	det = sqrt((c_des->mu20 - c_des->mu02) * (c_des->mu20 - c_des->mu02) + 4 * c_des->mu11 * c_des->mu11);
-	alpha = atan((c_des->mu02 - c_des->mu20 + det) / (2. * c_des->mu11));
-	a1carre = 2 * (c_des->mu02 + c_des->mu20 + det) / c_des->m00;
-	a2carre = 2 * (c_des->mu02 + c_des->mu20 - det) / c_des->m00;
+	c_des = &tpe->cible[obj_des];
+	c_cur = &tpe->cible[obj_cur];
+	info_image = tpe->info_image[1];
 
-	c_des->cx = c_des->cx;
-	c_des->cy = c_des->cy;
-	uref = c_des->cx + sqrt(a1carre) * cos(alpha);
-	vref = c_des->cy + sqrt(a1carre) * sin(alpha);
+	det = sqrt((c_des->mu20 - c_des->mu02)*(c_des->mu20 - c_des->mu02) + 4*c_des->mu11*c_des->mu11);
+	alpha = atan( (c_des->mu02 - c_des->mu20 + det)/(2.0*c_des->mu11) );
+	a1carre=2*(c_des->mu02 + c_des->mu20+det)/c_des->m00;
+	a2carre=2*(c_des->mu02 + c_des->mu20-det)/c_des->m00;
 
- 	det = sqrt((c_cur->mu20 - c_cur->mu02) * (c_cur->mu20 - c_cur->mu02) + 4 * c_cur->mu11 * c_cur->mu11);
-	alpha = atan((c_cur->mu02 - c_cur->mu20 + det) / (2. * c_cur->mu11));
-	a1carre = 2 * (c_cur->mu02 + c_cur->mu20 + det) / c_cur->m00;
-	a2carre = 2 * (c_cur->mu02 + c_cur->mu20 - det) / c_cur->m00;
+	cy_ref= c_des->cy;
+	cx_ref= c_des->cx;
+	u_ref = cx_ref+sqrt(a1carre)*cos(alpha);
+	v_ref = cy_ref+sqrt(a1carre)*sin(alpha);
 
-	cy = c_cur->cy;
-	ucur = c_cur->cx + sqrt(a1carre) * cos(alpha);
-	vcur = c_cur->cx + sqrt(a1carre) * sin(alpha);
+ 	det = sqrt((c_cur->mu20 - c_cur->mu02)*(c_cur->mu20 - c_cur->mu02) + 4*c_cur->mu11*c_cur->mu11);
+	alpha = atan( (c_cur->mu02 - c_cur->mu20 + det)/(2.0*c_cur->mu11) );
+	a1carre=2*(c_cur->mu02 + c_cur->mu20+det)/c_cur->m00;
+	a2carre=2*(c_cur->mu02 + c_cur->mu20-det)/c_cur->m00;
 
-	a1 = ((vref - c_des->cy) * (vcur - c_cur->cy) + (uref - c_des->cx) * (ucur - c_cur->cx))
-		 / ((vref - c_des->cy) * (vref - c_des->cy) + (uref - c_des->cx) * (uref - c_des->cx));
-	a2 = ((ucur - c_cur->cx) - a1 * (uref - c_des->cx)) / (vref - c_des->cy);
-	a3 = c_cur->cx - U_0 - a1 * (c_des->cx - U_0) - a2 * (c_des->cy - V_0);
-	a4 = c_cur->cy - V_0 - a1 * (c_des->cy - V_0) + a2 * (c_des->cx - U_0);
+	cx_cur=c_cur->cx;
+	cy_cur=c_cur->cy;
+	u_cur=cx_cur+sqrt(a1carre)*cos(alpha);
+	v_cur=cy_cur+sqrt(a1carre)*sin(alpha);
 
-	info_i[2] = Z_EST - Z_EST / sqrt((a1 * a1 + a2 * a2)); // tz
-	info_i[0] = (Z_EST - info_i[2]) * a3; // tx , z=zetoile-tz
-	info_i[1] = (Z_EST - info_i[2]) * a4;; // ty
-	info_i[3] = atan(a2 / a1); // alpha
+	M = dmatrice(4,4);
+	M_inv = dmatrice(4,4);
+
+	M[0][0] = cx_ref-U_0; M[0][1] = -(cy_ref-V_0); M[0][2] = ALPHA_U; M[0][3] = 0.0;
+	M[1][0] = cy_ref-V_0; M[1][1] = cx_ref-U_0; M[1][2] = 0.0; M[1][3] = ALPHA_V;
+	M[2][0] = u_ref-U_0; M[2][1] = -(v_ref-V_0); M[2][2] = ALPHA_U; M[2][3] = 0.0;
+	M[3][0] = v_ref-V_0; M[3][1] = u_ref-U_0; M[3][2] = 0.0; M[3][3] = ALPHA_V;
+
+	pinvGreville(M,4,4,M_inv);
+
+	u_vec[0] = cx_cur-U_0;
+	u_vec[1] = cy_cur-V_0;
+	u_vec[2] = u_cur-U_0;
+	u_vec[3] = v_cur-V_0;
+
+	mxv(M_inv,u_vec,a_vec,4,4);
+
+	Detruitdmatrice(M,4);
+	Detruitdmatrice(M_inv,4);
+
+	a1 = a_vec[0];
+	a2 = a_vec[1];
+	a3 = a_vec[2];
+	a4 = a_vec[3];
+
+	double z = Z_EST/sqrt(a1*a1+a2*a2);
+	tpe->info_image[1][2]=Z_EST-z; //tz
+	tpe->info_image[1][0]=z*a3; //tx
+	tpe->info_image[1][1]=z*a4; //ty
+	tpe->info_image[1][3]=atan2(a2,a1); //alpha
 
 	return 0;
 }
@@ -168,7 +201,8 @@ int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 *
 *****************************************************************************************/
 int Commande ( struct tpe_t tpe, double *control)	{
-	double* info_i = tpe.info_image[1];
+	double* info_i;
+	info_i = tpe.info_image[1];
 
 	// Mise a jour de la commande
 	control[0] = info_i[0]*GAIN_T;
@@ -520,7 +554,7 @@ int main( int argc, char *argv[] )	{
 	//det = sqrt((tpe->cible[0].mu20 - tpe->cible[0].mu02)*(tpe->cible[0].mu20 - tpe->cible[0].mu02) + 4*tpe->cible[0].mu11*tpe->cible[0].mu11);
 	//alpha = atan( (tpe->cible[0].mu02 - tpe->cible[0].mu20 + det)/(2.0*tpe->cible[0].mu11) );
 
-	//Update_mesure(&T, 0);
+	// Update_mesure(&T, 0, 1);
 	Detruit_vision( T.im );
 
 	for (i=0; i < NB_FRAME; i++)	{
@@ -539,11 +573,12 @@ int main( int argc, char *argv[] )	{
 
 		Moment ( &T, 1);
 		Update_aoi ( &T, 1);
+		Update_mesure(&T,0,1);
 		Commande ( T, control);
 
 		#ifdef LINUX
 		//printf(" moment image : %f %f %f %f %f %f \n",T.cible[1].m00,T.cible[1].m01,T.cible[1].m10,T.cible[1].m02,T.cible[1].m20,T.cible[1].m11);
-		 //printf("vitesse camera : %f %f %f %f \n",control[0],control[1],control[2],control[3]);
+		 printf("vitesse camera : %f %f %f %f \n",control[0],control[1],control[2],control[3]);
 		#endif
 
 		DisplayCross((int)T.cible[1].cx, (int) T.cible[1].cy, crossSize, 255 , T.im.coord,T.im.width,T.im.height);
