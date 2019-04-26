@@ -172,10 +172,10 @@ int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 	M = dmatrice(4,4);
 	M_inv = dmatrice(4,4);
 
-	M[0][0] = cx_ref-U_0; M[0][1] = -(cy_ref-V_0); M[0][2] = ALPHA_U; M[0][3] = 0.0;
-	M[1][0] = cy_ref-V_0; M[1][1] = cx_ref-U_0; M[1][2] = 0.0; M[1][3] = ALPHA_V;
-	M[2][0] = u_ref-U_0; M[2][1] = -(v_ref-V_0); M[2][2] = ALPHA_U; M[2][3] = 0.0;
-	M[3][0] = v_ref-V_0; M[3][1] = u_ref-U_0; M[3][2] = 0.0; M[3][3] = ALPHA_V;
+	M[0][0] = cx_ref-U_0; M[0][1] = -(cy_ref-V_0)*ALPHA_U/ALPHA_V; M[0][2] = ALPHA_U; M[0][3] = 0.0;
+	M[1][0] = cy_ref-V_0; M[1][1] = (cx_ref-U_0)*ALPHA_V/ALPHA_U; M[1][2] = 0.0; M[1][3] = ALPHA_V;
+	M[2][0] = u_ref-U_0; M[2][1] = -(v_ref-V_0)*ALPHA_U/ALPHA_V; M[2][2] = ALPHA_U; M[2][3] = 0.0;
+	M[3][0] = v_ref-V_0; M[3][1] = (u_ref-U_0)*ALPHA_V/ALPHA_U; M[3][2] = 0.0; M[3][3] = ALPHA_V;
 
 	pinvGreville(M,4,4,M_inv);
 
