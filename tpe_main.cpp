@@ -40,7 +40,7 @@ int Update_aoi ( struct tpe_t *tpe, int obj)	{
 
 	// Calcul les caracteristique de l'ellipse
  	det = sqrt((c->mu02 - c->mu20)*(c->mu02 - c->mu20) + 4 * c->mu11 * c->mu11);
-	alpha = atan((c->mu02 - c->mu20 + det) / (2. * c->mu11));
+	alpha = atan2(c->mu02 - c->mu20 + det, 2. * c->mu11);
 	a1 = sqrt(2*(c->mu02 + c->mu20 + det) / c->m00);
 	a2 = sqrt(2*(c->mu02 + c->mu20 - det) / c->m00);
 
@@ -128,7 +128,7 @@ int Moment (struct tpe_t *tpe, int obj  ){
 *****************************************************************************************/
 int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 	double a1,a2,a3,a4;
-	double u_cur,v_cur,cx_cur,cy_cur,u_ref,v_ref,cx_ref,cy_ref,alpha,det,a1carre,a2carre;
+	double u_cur,v_cur,cx_cur,cy_cur,u_ref,v_ref,cx_ref,cy_ref,alpha,det,a1carre,a2carre,z;
 	double **M;
 	double **M_inv;
 	double a_vec[4];
@@ -142,26 +142,33 @@ int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 	c_cur = &tpe->cible[obj_cur];
 	info_image = tpe->info_image[1];
 
+	// Calcul des caracteristiques de l'ellipse sur l'image desiree
 	det = sqrt((c_des->mu20 - c_des->mu02)*(c_des->mu20 - c_des->mu02) + 4*c_des->mu11*c_des->mu11);
-	alpha = atan( (c_des->mu02 - c_des->mu20 + det)/(2.0*c_des->mu11) );
+	alpha = atan2(c_des->mu02 - c_des->mu20 + det, 2. * c_des->mu11);
 	a1carre=2*(c_des->mu02 + c_des->mu20+det)/c_des->m00;
 	a2carre=2*(c_des->mu02 + c_des->mu20-det)/c_des->m00;
 
+	// Definition des points caracteristiques de l'ellipse sur l'image desiree
+	// Le centre de l'ellipse
 	cy_ref= c_des->cy;
 	cx_ref= c_des->cx;
+	// Un sommet de l'ellipse
 	u_ref = cx_ref+sqrt(a1carre)*cos(alpha);
 	v_ref = cy_ref+sqrt(a1carre)*sin(alpha);
 
+	// Calcul des caracteristiques de l'ellipse sur l'image courante
  	det = sqrt((c_cur->mu20 - c_cur->mu02)*(c_cur->mu20 - c_cur->mu02) + 4*c_cur->mu11*c_cur->mu11);
-	alpha = atan( (c_cur->mu02 - c_cur->mu20 + det)/(2.0*c_cur->mu11) );
+	alpha = atan2(c_cur->mu02 - c_cur->mu20 + det, 2. * c_cur->mu11);
 	a1carre=2*(c_cur->mu02 + c_cur->mu20+det)/c_cur->m00;
 	a2carre=2*(c_cur->mu02 + c_cur->mu20-det)/c_cur->m00;
 
+	// Definition des points caracteristiques de l'ellipse sur l'image courante
 	cx_cur=c_cur->cx;
 	cy_cur=c_cur->cy;
 	u_cur=cx_cur+sqrt(a1carre)*cos(alpha);
 	v_cur=cy_cur+sqrt(a1carre)*sin(alpha);
 
+	// Calcul des solutions du systeme
 	M = dmatrice(4,4);
 	M_inv = dmatrice(4,4);
 
@@ -172,10 +179,10 @@ int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 
 	pinvGreville(M,4,4,M_inv);
 
-	u_vec[0] = cx_cur-U_0;
-	u_vec[1] = cy_cur-V_0;
-	u_vec[2] = u_cur-U_0;
-	u_vec[3] = v_cur-V_0;
+	u_vec[0] = cx_cur - U_0;
+	u_vec[1] = cy_cur - V_0;
+	u_vec[2] = u_cur - U_0;
+	u_vec[3] = v_cur - V_0;
 
 	mxv(M_inv,u_vec,a_vec,4,4);
 
@@ -187,11 +194,11 @@ int Update_mesure(struct tpe_t *tpe, int obj_des, int obj_cur) 	{
 	a3 = a_vec[2];
 	a4 = a_vec[3];
 
-	double z = Z_EST/sqrt(a1*a1+a2*a2);
-	tpe->info_image[1][2]=Z_EST-z; //tz
-	tpe->info_image[1][0]=z*a3; //tx
-	tpe->info_image[1][1]=z*a4; //ty
-	tpe->info_image[1][3]=atan2(a2,a1); //alpha
+	z = Z_EST / sqrt(a1*a1 + a2*a2);
+	tpe->info_image[1][2] = z - Z_EST; //tz
+	tpe->info_image[1][0] = z * a3; //tx
+	tpe->info_image[1][1] = z * a4; //ty
+	tpe->info_image[1][3] = atan2(a2, a1); //alpha
 
 	return 0;
 }
@@ -205,10 +212,10 @@ int Commande ( struct tpe_t tpe, double *control)	{
 	info_i = tpe.info_image[1];
 
 	// Mise a jour de la commande
-	control[0] = info_i[0]*GAIN_T;
-	control[1] = info_i[1]*GAIN_T;
-	control[2] = info_i[2]*GAIN_T;
-	control[3] = info_i[3]*GAIN_R;
+	control[0] = info_i[0] * GAIN_T;
+	control[1] = info_i[1] * GAIN_T;
+	control[2] = info_i[2] * GAIN_T;
+	control[3] = info_i[3] * GAIN_R;
 
 	return 0;
 }
